@@ -1,0 +1,41 @@
+Uzyte biblioteki:
+- undertow 2.3.5 (serwer http)
+ > Apache License, Version 2.0
+ > lekki, szybki, łatwy do osadzenia serwer WWW
+- jsoniter 0.9.23 (parser json)
+ > MIT License
+ > umożliwia przetwarzanie w strumieniu w trakcie wczytywania, co daje przewagę wydajności nad innymi, że nie musimy kopiować do tymczasowych list wejścia
+ > niestety już nie rozwijana od lat, więc na pewno bym nie użył w "prawdziwym" projekcie :(
+
+
+Złożoność:
+
+A. transactions:
+ O(T*lnN) gdzie:
+  T - liczba transakcji (1..100000)
+  N - liczba unikalnych kont (1..200000)
+    główny koszt : wyszukanie w mapie kont konta lub go dodanie
+    dylemat: TreeMap vs HashMap. Tree ma O(lnN) szukanie, ale potem w O(1) daje posortowany wynik.
+            Hash na odwrót - O(1) wyszukanie, ale potem zaś O(NlnN) posortowanie.
+            Wybrane: TreeMap
+B. atmservice:
+ O(N*lnN) gdzie
+  N - łączna ilość bankomatów na liście zleceń (przed usunięciem dubli) [1..??]
+        teoretycznie 10_000 regionow * 10_000 bankotow w regionie * 4 mozliwe operacje = [1..400_000_000]
+ główny koszt : posortowanie listy wszystkich bankomatow
+B. onlinegame:
+ Pesymistyczna O(K*G) gdzie
+    K - liczba klanow (1..1000)
+    G - liczba miejsc w grupie (1.1000)
+ Mikrooptymalizacje wyszukania, więc dla losowych danych powinno być znacznie szybciej, bo cały czas zawężamy przedział wyszukiwania.....
+ Dla optymalnego rozwiązania O(K*lnG) powinienem był użyć jakiegoś np. SegmentTree, ale skopiowanie z www rozwiązania to nie zabawa :) a z głowy bez siedzenia nad tym dniami nie napiszę...
+
+Optymalizacje:
+ * ustawienia pamięci -MmxXXX, -MmsXXX dla zredukowania realokacji
+ * GC - domyślny G1. ZGC może być wolniejszy dla ograniczonych zasobów środowiska [? do potwierdzenia]
+ * przetwarzanie danych w strumieniu. Zamiast najpierw wczytać cały Request jako np. liste a potem go przetwarzać, przetwarzam dane pozycja po pozycji.
+     Unikam dzięki temu:
+      * tworzenia niepotrzebnych struktów (mniej zużytej pamięci -> mniej czasu na GC)
+      * niepotrzebnego potem przepisywania do innych struktur, które są potrzebne dla wyliczenia wyniku (jedna pętla O(N) mniej)
+      * [teoretycznie] jeśli IO jest wolniejsze od wyliczeń, można wykorzystać na wyliczenia ten czas, który przy wczytaniu całości bym czekał na IO.
+ * jsoniter umożliwia wygenerowanie klas do (de)serializacji przy uruchomieniu, dzięki czemy nie potem przy przetwarzaniu json używać refleksji.
